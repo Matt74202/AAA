@@ -15,71 +15,52 @@ import util.Mapping;
 import util.Utilitaire;
 
 public class FrontController extends HttpServlet {
-
-    // String packagePath;
-    // boolean isChecked;
-    // Vector<String> controllers;
     HashMap<String,Mapping> map;
-
-    // public void init(){
-    //     try{
-    //         controllers= new Utilitaire().getListController(this.getInitParameter("package"), AnnotationController.class);
-    //         isChecked= true;
-    //     }
-    //     catch (Exception e){
-    //         throw new RuntimeException();
-    //     }
-    // }
     public void init() throws ServletException {
         try {
             String package_name = this.getInitParameter("package_name");
-            map = Util.getAllClassesSelonAnnotation(package_name,ControllerAnnotation.class);
+            map = Utilitaire.getAllClassesSelonAnnotation(package_name,AnnotationController.class);
         } catch (Exception e) {
             e.printStackTrace();
         }
 
+        }
+
+    protected void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
+        processedRequest(req, res);
     }
 
-    protected void processRequest(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException, ClassNotFoundException {
-        // PrintWriter out = response.getWriter();
-        // // String url = request.getRequestURL().toString();
-        // // out.println("Tonga eto amin'ny " + url);
-        // if (!isChecked){
-        //     init();
-        // }
-        // else{
-        //     for (int i=0; i<controllers.size(); i++){
-        //         out.println(controllers.get(i));
-        //     }
-        // }
-        try{
-            String stringUrl = request.getRequestURL().toString();
-            Boolean ifUrlExist = false;
-            PrintWriter out = response.getWriter();
-            
-            for (String cle : map.keySet()) {
-                if(cle.equals(request.getRequestURI().toString())){
-                    out.println("Votre url : "+stringUrl +" est associe a la methode : "+ map.get(cle).getMethodeName()+" dans la classe : "+(map.get(cle).getClassName()));
-                    ifUrlExist = true;
+    protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
+        processedRequest(req, res);
+    }
+
+    protected void processedRequest(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
+        res.setContentType("text/plain");
+        PrintWriter out = res.getWriter();
+        out.println("Tongasoa ato am FrontController");
+        String url= req.getRequestURI().toString();
+        boolean urlexist=false;
+        for (String cle:map.keySet()){
+            if (cle.equals(url)) {
+                //out.println("Votre url : "+url +" est associe a la methode : "+ map.get(cle).getMethodeName()+" dans la classe : "+(map.get(cle).getClassName()));
+                Mapping mapping=map.get(url);
+                try {
+                    Class<?>c=Class.forName(mapping.getClassName());
+                    Method m=c.getDeclaredMethod(mapping.getMethodeName());
+                    Object instance=c.getDeclaredConstructor().newInstance();
+                    Object result=m.invoke(instance);
+                    out.println(result.toString());
+                    urlexist=true;
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
-            }
-                if (!ifUrlExist) {
-                    out.println("Aucune methode n'est associe a l url : "+stringUrl );
-                }
-            }
-        catch(Exception e){ }
-    }
+               
 
-    @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException, ClassNotFoundException{
-        processRequest(request, response);
-    }
-
-    @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException, ClassNotFoundException {
-        processRequest(request, response);
+            }
+        }
+        if (!urlexist) {
+            out.println("Aucune methode n'est associe a l url : "+url);
+        }
     }
 }
+
