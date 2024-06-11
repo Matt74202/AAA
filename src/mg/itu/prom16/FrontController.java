@@ -3,43 +3,37 @@ package mg.itu.prom16;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Vector;
 
 import annotation.Controller;
+import exception.InvalidControllerProviderException;
+import exception.InvalidReturnTypeExcpetion;
+import exception.UrlNotFoundException;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
 import util.Mapping;
 import util.ModelAndView;
 import util.Utilitaire;
 
-import annotation.Get;
-
 public class FrontController extends HttpServlet {
     HashMap<String, Mapping> urlMappings;
 
-    public void init() {
+    public void init() throws ServletException {
         try {
             String packageName = getInitParameter("package");
-            Vector<String> controllers = Utilitaire.getListController(packageName, Controller.class);
-
-            HashMap<String, Mapping> temp = new HashMap<String, Mapping>();
-
-            for (String controller : controllers) {
-                Class<?> clazz = Class.forName(controller);
-                List<Method> classMethods = Utilitaire.getClassMethodsWithAnnotation(clazz, Get.class);
-                for (Method method : classMethods) {
-                    String annotationValue = method.getAnnotation(Get.class).value();
-                    temp.put(annotationValue, new Mapping(controller, method.getName()));
-                }
+            if (packageName == null || packageName.isEmpty()) {
+                throw new InvalidControllerProviderException("Invalid Controller Provider ");
             }
+            Vector<String> controllers = Utilitaire.getListController(packageName, Controller.class);
+            HashMap<String, Mapping> temp = Utilitaire.getMapping(controllers);
             setUrlMappings(temp);
         } catch (Exception e) {
-            throw new RuntimeException();
+            throw new ServletException(e);
         }
 
     }
@@ -50,29 +44,31 @@ public class FrontController extends HttpServlet {
         try {
             String url = request.getRequestURI().substring(request.getContextPath().length());
             Mapping mapping = urlMappings.get(url);
-
+            out.println(mapping);
             if (mapping != null) {
                 Class<?> clazz = Class.forName(mapping.getClassName());
                 Method method = clazz.getMethod(mapping.getMethodName());
                 Object result = method.invoke(clazz.getConstructor().newInstance());
-                if(result instanceof String){
+                if (result instanceof String) {
                     out.println(result);
-                }else if(result instanceof ModelAndView){
-                    ModelAndView modelAndView = (ModelAndView)result;
-                    HashMap<String , Object> data = modelAndView.getData(); 
-                    for(String key : data.keySet()){
+                } else if (result instanceof ModelAndView) {
+                    ModelAndView modelAndView = (ModelAndView) result;
+                    HashMap<String, Object> data = modelAndView.getData();
+                    for (String key : data.keySet()) {
                         request.setAttribute(key, data.get(key));
                     }
                     request.getRequestDispatcher(modelAndView.getUrl()).forward(request, response);
-                }else{
-                    System.out.println("not recognized");
+                } else {
+                    throw new InvalidReturnTypeExcpetion("Invalid return type");
                 }
             } else {
-                out.println("Url not found");
+                throw new UrlNotFoundException("Url not found ");
             }
+        } catch (UrlNotFoundException e) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, e.getMessage());
 
         } catch (Exception e) {
-            e.printStackTrace(out);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
         }
     }
 
@@ -82,6 +78,7 @@ public class FrontController extends HttpServlet {
         try {
             processRequest(request, response);
         } catch (ClassNotFoundException | ServletException | IOException e) {
+            // TODO Auto-generated catch block
             e.printStackTrace();
         }
     }
@@ -109,5 +106,6 @@ public class FrontController extends HttpServlet {
     public void setUrlMappings(HashMap<String, Mapping> urlMappings) {
         this.urlMappings = urlMappings;
     }
+    
 
 }
