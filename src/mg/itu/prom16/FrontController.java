@@ -48,7 +48,7 @@ public class FrontController extends HttpServlet {
             if (mapping != null) {
                 Class<?> clazz = Class.forName(mapping.getClassName());
                 Method method = clazz.getMethod(mapping.getMethodName());
-                Object result = method.invoke(clazz.getConstructor().newInstance());
+                Object result = mapping.invoke(request, clazz, method);
                 if (result instanceof String) {
                     out.println(result);
                 } else if (result instanceof ModelAndView) {
@@ -106,6 +106,5 @@ public class FrontController extends HttpServlet {
     public void setUrlMappings(HashMap<String, Mapping> urlMappings) {
         this.urlMappings = urlMappings;
     }
-    
 
 }
