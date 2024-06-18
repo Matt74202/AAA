@@ -1,5 +1,11 @@
 package util ;
 
+import java.lang.reflect.Method;
+import java.util.Map;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+
 public class Mapping {
     String className ; 
     String methodName ;
@@ -44,5 +50,17 @@ public class Mapping {
      */
     public void setMethodName(String methodName) {
         this.methodName = methodName;
+    }
+
+    public Object invoke(HttpServletRequest request , Class<?> clazz , Method method  ) throws ServletException {
+        try {
+            Object obj = clazz.getDeclaredConstructor().newInstance();
+            Map<String, String> params = ServletUtil.extractParameters(request);
+            Object[] args = ServletUtil.getMethodArguments(method, params);
+
+            return method.invoke(obj, args);
+        } catch (Exception e) {
+            throw new ServletException("Error invoking method", e);
+        }
     }
 }
