@@ -47,11 +47,11 @@ public class FrontController extends HttpServlet {
             out.println(mapping);
             if (mapping != null) {
                 Class<?> clazz = Class.forName(mapping.getClassName());
-                Method method = clazz.getMethod(mapping.getMethodName());
+                Method method = mapping.getMethod();
                 Object result = mapping.invoke(request, clazz, method);
                 if (result instanceof String) {
                     out.println(result);
-                } else if (result instanceof ModelAndView) {
+                // } else if (result instanceof ModelAndView) {
                     ModelAndView modelAndView = (ModelAndView) result;
                     HashMap<String, Object> data = modelAndView.getData();
                     for (String key : data.keySet()) {

@@ -8,20 +8,20 @@ import jakarta.servlet.http.HttpServletRequest;
 
 public class Mapping {
     String className ; 
-    String methodName ;
+    Method method;
    
     /**
      * @param className
      * @param methodName
      */
-    public Mapping(String className, String methodName) {
+    public Mapping(String className, Method methodName) {
         this.className = className;
-        this.methodName = methodName;
+        this.method = methodName;
     } 
 
     @Override
     public String toString(){
-        return "ClassName =' "+ className +" ' MethodName =' "+ methodName ; 
+        return "ClassName =' "+ className +" ' MethodName =' "+ method ; 
     }
 
     /**
@@ -41,15 +41,15 @@ public class Mapping {
     /**
      * @return the methodName
      */
-    public String getMethodName() {
-        return methodName;
+    public Method getMethod() {
+        return method;
     }
 
     /**
      * @param methodName the methodName to set
      */
-    public void setMethodName(String methodName) {
-        this.methodName = methodName;
+    public void setMethod(Method methodName) {
+        this.method = methodName;
     }
 
     public Object invoke(HttpServletRequest request , Class<?> clazz , Method method  ) throws ServletException {
