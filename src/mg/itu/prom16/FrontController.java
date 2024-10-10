@@ -1,13 +1,7 @@
 package mg.itu.prom16;
 
-import utils.Utilitaire;
 import java.io.IOException;
 import java.io.PrintWriter;
-
-import utils.ModelView;
-import utils.MySession;
-import utils.TypeConverter;
-
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
@@ -15,47 +9,52 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
+import annotation.Controller;
+import annotation.ReqParam;
+import exception.DuplicateUrlException;
+import exception.InvalidReturnTypeExcpetion;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
-import controller.AnnotationController;
-import controller.AnnotationReqParam;
-import exception.DuplicateUrlException;
-import exception.InvalidReturnTypeException;
+import util.Mapping;
+import util.ModelAndView;
+import util.MySession;
+import util.TypeConverter;
+import util.Utilitaire;
 
 public class FrontController extends HttpServlet {
-
     private Utilitaire scanner;
-    private HashMap<String, Mapping> ListService;
+    HashMap<String, Mapping> urlMappings;
 
-    @Override
     public void init() throws ServletException {
         try {
             scanner = new Utilitaire();
-            String packagename = this.getInitParameter("source-package");
-            ListService = scanner.getMapping(packagename, AnnotationController.class);
+            String packagename = this.getInitParameter("package");
+            urlMappings = scanner.getMapping(packagename, Controller.class);
         } catch (DuplicateUrlException e) {
             log("DuplicateGetMappingException occurred: " + e.getMessage());
         }
+
     }
 
-    protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        response.setContentType("text/html;charset=UTF-8");
+    private void processRequest(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException, ClassNotFoundException {
         PrintWriter out = response.getWriter();
         String url = scanner.conform_url(request.getRequestURL().toString());
-        Mapping mapping = ListService.get(url);
+        Mapping mapping = urlMappings.get(url);
+            out.println(mapping);
         if (mapping == null) {
-            response.sendError(HttpServletResponse.SC_NOT_FOUND, "URL non mappée.");
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "URL not mapped.");
             return;
         }
-    
+
         try {
             Class<?> clazz = Class.forName(mapping.getClassName());
+            // Controller instance:
             Object instance = clazz.getDeclaredConstructor().newInstance();
+            // get matching method for url
             Method method = null;
             for (Method m : clazz.getDeclaredMethods()) {
                 if (m.getName().equals(mapping.getMethodName())) {
@@ -63,9 +62,11 @@ public class FrontController extends HttpServlet {
                     break;
                 }
             }
-    
+
+            // get All the parameters name from a form:
             Enumeration<String> parameterNames = request.getParameterNames();
-            Map<String, Object> objets = new HashMap<>();
+            // Map to hold created objects
+            Map<String, Object> objets = new HashMap<String, Object>();
             while (parameterNames.hasMoreElements()) {
                 String paramName = parameterNames.nextElement();
                 String[] parts = paramName.split("\\.");
@@ -81,61 +82,88 @@ public class FrontController extends HttpServlet {
                     }
                     Method datasetter = null;
                     for (Method m : objetclazz.getDeclaredMethods()) {
-                        if (m.getName().equals("set" + parts[1].substring(0, 1).toUpperCase() + parts[1].substring(1))) {
+                        if (m.getName()
+                                .equals("set" + parts[1].substring(0, 1).toUpperCase() + parts[1].substring(1))) {
                             datasetter = m;
                             break;
                         }
                     }
                     String paramValue = request.getParameter(paramName);
-                    datasetter.invoke(mydataholder, TypeConverter.convertParameter(datasetter.getParameterTypes()[0], paramValue));
+                    datasetter.invoke(mydataholder,TypeConverter.convertParameter(datasetter.getParameterTypes()[0], paramValue));
                 } else {
                     String paramValue = request.getParameter(paramName);
                     objets.put(paramName, paramValue);
                 }
             }
-    
+            
             MySession session = new MySession(request.getSession());
             objets.put("session", session);
-    
+
             List<Object> methodArgs = new ArrayList<>();
             for (Parameter parameter : method.getParameters()) {
                 if (parameter.getType().equals(MySession.class)) {
-                    methodArgs.add(session);
-                } else {
-                    String paramName = parameter.isAnnotationPresent(AnnotationReqParam.class) ? parameter.getAnnotation(AnnotationReqParam.class).value() : parameter.getName();
-                    methodArgs.add(objets.get(paramName));
+                    methodArgs.add(new MySession(request.getSession()));
+                    
+                }else{
+                    String paramName = parameter.isAnnotationPresent(ReqParam.class) ? parameter.getAnnotation(ReqParam.class).value() : parameter.getName() ;
+                    methodArgs.add(objets.get(paramName)) ;  
                 }
+
             }
-    
             Object result = method.invoke(instance, methodArgs.toArray());
             if (result instanceof String) {
                 out.println(result);
-            } else if (result instanceof ModelView) {
-                ModelView mv = (ModelView) result;
-                if (mv.getData() != null) {
+            } else if (result instanceof ModelAndView) {
+                ModelAndView mv = (ModelAndView) result;
+                if(mv.getData() != null ) {
                     mv.getData().forEach(request::setAttribute);
                 }
                 RequestDispatcher dispatcher = request.getRequestDispatcher(mv.getUrl());
                 dispatcher.forward(request, response);
             } else {
-                throw new InvalidReturnTypeException("Type de retour non pris en charge pour : " + url);
+                throw new InvalidReturnTypeExcpetion("Return type not handled for: " + url);
             }
         } catch (Exception e) {
-            out.println("<h3>Oups !</h3>");
-            out.println("<p>Une erreur s'est produite lors du traitement de la demande.</p>");
-            out.println("<p>Exception : " + e.getClass().getName() + "</p>");
-            out.println("<p>Message : " + e.getMessage() + "</p>");
-           
+            out.println("<h3>Oops!</h3>");
+            out.println("<p>An error occurred while processing the request.</p>");
+            out.println("<p>Excpeption :" + e.getClass().getName() +"</p>");
+            out.println("<p>Message :" +e.getMessage() +"</p>");
         }
-    }
-    
-    @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        processRequest(req, resp);
     }
 
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        processRequest(req, resp);
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        try {
+            processRequest(request, response);
+        } catch (ClassNotFoundException | ServletException | IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
     }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        try {
+            processRequest(request, response);
+        } catch (ClassNotFoundException | ServletException | IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * @return the urlMappings
+     */
+    public HashMap<String, Mapping> getUrlMappings() {
+        return urlMappings;
+    }
+
+    /**
+     * @param urlMappings the urlMappings to set
+     */
+    public void setUrlMappings(HashMap<String, Mapping> urlMappings) {
+        this.urlMappings = urlMappings;
+    }
+
 }
