@@ -1,5 +1,4 @@
-package util;
-
+package utils;
 
 import jakarta.servlet.http.HttpSession;
 
@@ -14,19 +13,11 @@ public class MySession {
         return session.getAttribute(key);
     }
 
-    public void add(String key, Object object) {
-        session.setAttribute(key, object);
+    public void add(String key, Object objet) {
+        session.setAttribute(key, objet);
     }
 
-    public void delete(String key) {
+    public  void delete(String key) {
         session.removeAttribute(key);
-    }
-
-    public void clear() {
-        session.invalidate();
-    }
-
-    public HttpSession getSession() {
-        return session;
     }
 }
