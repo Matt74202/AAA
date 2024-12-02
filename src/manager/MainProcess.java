@@ -13,13 +13,14 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import mg.itu.prom16.FrontController;
-import util.ModelAndView;
+import utils.ModelView;
 import util.VerbMethod;
 import exception.AnnotationNotPresentException;
 import exception.DuplicateUrlException;
 import exception.IllegalReturnTypeException;
 import exception.InvalidControllerPackageException;
 import exception.InvalidRequestException;
+import exception.ModelValidationException;
 import exception.UrlNotFoundException;
 import handler.ExceptionHandler;
 import util.Mapping;
@@ -33,8 +34,8 @@ public class MainProcess {
     private static String handleRest(Object methodObject, HttpServletResponse response) {
         Gson gson = new Gson();
         String json = null;
-        if (methodObject instanceof ModelAndView) {
-            json = gson.toJson(((ModelAndView)methodObject).getData());
+        if (methodObject instanceof ModelView) {
+            json = gson.toJson(((ModelView)methodObject).getData());
         } else {
             json = gson.toJson(methodObject);
         }   
@@ -45,7 +46,7 @@ public class MainProcess {
     public static void handleRequest(FrontController controller, HttpServletRequest request,
             HttpServletResponse response) throws IOException, UrlNotFoundException, ClassNotFoundException,
             NoSuchMethodException, SecurityException, IllegalAccessException, IllegalArgumentException,
-            InvocationTargetException, InstantiationException, ServletException, IllegalReturnTypeException, NoSuchFieldException, AnnotationNotPresentException, InvalidRequestException {
+            InvocationTargetException, InstantiationException, ServletException, IllegalReturnTypeException, NoSuchFieldException, AnnotationNotPresentException, InvalidRequestException, ModelValidationException {
         PrintWriter out = response.getWriter();
         String verb = request.getMethod();
 
@@ -71,8 +72,8 @@ public class MainProcess {
 
         if (result instanceof String) {
             out.println(result.toString());
-        } else if (result instanceof ModelAndView) {
-            ModelAndView modelView = ((ModelAndView) result);
+        } else if (result instanceof ModelView) {
+            ModelView modelView = ((ModelView) result);
             HashMap<String, Object> data = ((HashMap<String, Object>)modelView.getData());
 
             for (Entry<String, Object> entry : data.entrySet()) {

@@ -7,15 +7,17 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.sql.Date;
 import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
+
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import annotation.ReqParam;
 import util.File;
 import utils.MySession;
+import exception.ModelValidationException;
+import utils.validation.Validator;
 
 public class ObjectUtils {
     private ObjectUtils() {
@@ -24,7 +26,7 @@ public class ObjectUtils {
     public static Object getParameterInstance(HttpServletRequest request, Parameter parameter, Class<?> clazz,
             Object object)
             throws InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchMethodException,
-            NoSuchFieldException, IOException, ServletException {
+            NoSuchFieldException, IOException, ServletException, IllegalArgumentException, SecurityException, ModelValidationException {
         String strValue;
 
         ReqParam annotatedType = parameter.getAnnotation(ReqParam.class);
@@ -55,41 +57,34 @@ public class ObjectUtils {
         return object;
     }
 
-    private static void setObjectAttributesValues(Object instance, String attributeName, String value)
+    private static void setObjectAttributesValues(Object instance, Field field, String value)
             throws NoSuchFieldException, SecurityException, NoSuchMethodException, IllegalAccessException,
             IllegalArgumentException, InvocationTargetException {
-        Field field = instance.getClass().getDeclaredField(attributeName);
 
         Object fieldValue = castObject(value, field.getType());
-        String setterMethodName = ReflectUtils.getSetterMethod(attributeName);
+        String setterMethodName = ReflectUtils.getSetterMethod(field.getName());
         Method method = instance.getClass().getMethod(setterMethodName, field.getType());
         method.invoke(instance, fieldValue);
     }
 
     public static Object getObjectInstance(Class<?> classType, String annotationValue, HttpServletRequest request)
             throws InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException,
-            NoSuchMethodException, SecurityException, NoSuchFieldException {
+            NoSuchMethodException, SecurityException, NoSuchFieldException, ModelValidationException {
         Object instance = classType.getConstructor().newInstance();
+        Field[] fields = classType.getDeclaredFields();
 
-        Enumeration<String> requestParams = request.getParameterNames();
-
-        String attributeName = null;
         String className = null;
-        String requestParamName = null;
-        String regex = null;
-        String[] splitParamName = null;
+        String paramName = null;
 
-        className = annotationValue.split("\\.")[0];
-        regex = className + ".*";
+        className = annotationValue.split("\\.")[0] + ".";
 
-        while (requestParams.hasMoreElements()) {
-            requestParamName = requestParams.nextElement();
-            splitParamName = requestParamName.split("\\.");
+        for (Field field : fields) {
+            paramName = className + field.getName();
+            String value = request.getParameter(paramName);
 
-            if (requestParamName.matches(regex) && splitParamName.length >= 2) {
-                attributeName = splitParamName[1];
-                setObjectAttributesValues(instance, attributeName, request.getParameter(requestParamName));
-            }
+            Validator.checkField(value, field);
+
+            setObjectAttributesValues(instance, field, value);
         }
 
         return instance;
