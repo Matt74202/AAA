@@ -12,7 +12,8 @@ import exception.ModelValidationException;
 import jakarta.servlet.http.HttpServletRequest;
 import manager.data.FieldExceptions;
 import manager.data.ModelValidationExceptionHandler;
-import utils.ObjectUtils;
+import utils.reflection.ObjectUtils;
+import utils.registry.ValidatorRegistry;
 import utils.validation.validator.FieldValidator;
 
 public class Validator {
