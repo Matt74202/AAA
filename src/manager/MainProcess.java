@@ -3,15 +3,18 @@ package manager;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
 
 import com.google.gson.Gson;
 
+import annotation.RequiredRole;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import manager.data.ModelValidationExceptionHandler;
 import manager.handler.RedirectionHandler;
 import mg.itu.prom16.FrontController;
@@ -23,6 +26,7 @@ import exception.IllegalReturnTypeException;
 import exception.InvalidControllerPackageException;
 import exception.InvalidRequestException;
 import exception.ModelValidationException;
+import exception.UnauthorizedAccessException;
 import exception.UrlNotFoundException;
 import handler.ExceptionHandler;
 import util.Mapping;
@@ -36,6 +40,40 @@ public class MainProcess {
     static FrontController frontController;
     private List<Exception> exceptions;
     private static ModelValidationExceptionHandler handler = new ModelValidationExceptionHandler();
+    private static String defaultRoleAttribute;
+
+    private static void checkUserRole(HttpServletRequest request, VerbMethod verbMethod)
+            throws UnauthorizedAccessException {
+
+        RequiredRole requiredRole = verbMethod.getMethod().getAnnotation(RequiredRole.class);
+        if (requiredRole != null) {
+            HttpSession session = request.getSession(false);
+
+            if (session == null) {
+                throw new UnauthorizedAccessException("No active session found");
+            }
+
+            Object role = session.getAttribute(defaultRoleAttribute);
+
+            if (role == null) {
+                throw new UnauthorizedAccessException("No role defined in session");
+            }
+
+            String roleStr = role.toString();
+            String[] allowedRoles = requiredRole.values();
+            boolean hasRequiredRole = false;
+            for (String allowed : allowedRoles) {
+                if (allowed.equalsIgnoreCase(roleStr)) {
+                    hasRequiredRole = true;
+                    break;
+                }
+            }
+            if (!hasRequiredRole) {
+                throw new UnauthorizedAccessException(
+                        "Required role not found. Required: " + Arrays.toString(allowedRoles));
+            }
+        }
+    }
 
     private static String handleRest(Object methodObject, HttpServletResponse response) {
         Gson gson = new Gson();
@@ -61,7 +99,9 @@ public class MainProcess {
     public static void handleRequest(FrontController controller, HttpServletRequest request,
             HttpServletResponse response) throws IOException, UrlNotFoundException, 
             NoSuchMethodException, SecurityException, IllegalAccessException, IllegalArgumentException,
-            InvocationTargetException, InstantiationException, ServletException, IllegalReturnTypeException, NoSuchFieldException, AnnotationNotPresentException, InvalidRequestException, ModelValidationException, ClassNotFoundException {
+            InvocationTargetException, InstantiationException, ServletException, IllegalReturnTypeException, 
+            NoSuchFieldException, AnnotationNotPresentException, InvalidRequestException, 
+            ModelValidationException, ClassNotFoundException, UnauthorizedAccessException {
         PrintWriter out = response.getWriter();
         String verb = request.getMethod();
 
@@ -78,6 +118,8 @@ public class MainProcess {
         }
         
         VerbMethod verbMethod = mapping.getSpecificVerbMethod(verb);
+
+        checkUserRole(request, verbMethod);
         
         handler = Validator.validateMethod(verbMethod.getMethod(), request);
 
@@ -121,12 +163,18 @@ public class MainProcess {
         String packageName = controller.getInitParameter("package_name");
         String errorParamName = controller.getInitParameter("error_param_name");
         String errorRedirectionParamName = controller.getInitParameter("error_redirection_param_name");
+        String roleAttributeName = controller.getInitParameter("role_attribute_name");
 
         HashMap<String, Mapping> urlMappings;
         urlMappings = (HashMap<String, Mapping>) PackageScanner.scanPackage(packageName);
 
+        InitParameter initParameter = new InitParameter(errorParamName, packageName, errorRedirectionParamName,
+                roleAttributeName);
+
+        defaultRoleAttribute = initParameter.getRoleAttributeName();
+
         controller.setURLMapping(urlMappings);
-        controller.setInitParameter(new InitParameter(errorParamName, packageName, errorRedirectionParamName));
+        controller.setInitParameter(initParameter);
     }
 
     // Getters and setters
