@@ -15,12 +15,15 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import annotation.ReqParam;
 import util.File;
-import utils.MySession;
 import exception.ModelValidationException;
 import utils.validation.Validator;
 
 public class ObjectUtils {
     private ObjectUtils() {
+    }
+
+    public static boolean isClassModel(Class<?> type) {
+        return !ObjectUtils.isPrimitive(type) && !type.equals(MySession.class) && !type.equals(File.class);
     }
 
     public static Object getParameterInstance(HttpServletRequest request, Parameter parameter, Class<?> clazz,
@@ -49,16 +52,13 @@ public class ObjectUtils {
         } else if (clazz.equals(File.class)) {
             object = FileUtils.createRequestFile(annotationValue, request);
         } else {
-            
-            if (parameter.isAnnotationPresent(ReqParam.class)) {
-                object = ObjectUtils.getObjectInstance(clazz, annotationValue, request);
-            }
+            object = ObjectUtils.getObjectInstance(clazz, annotationValue, request);
         }
         return object;
     }
 
     private static void setObjectAttributesValues(Object instance, Field field, String value)
-            throws NoSuchFieldException, SecurityException, NoSuchMethodException, IllegalAccessException,
+            throws SecurityException, NoSuchMethodException, IllegalAccessException,
             IllegalArgumentException, InvocationTargetException {
 
         Object fieldValue = castObject(value, field.getType());
@@ -69,7 +69,7 @@ public class ObjectUtils {
 
     public static Object getObjectInstance(Class<?> classType, String annotationValue, HttpServletRequest request)
             throws InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException,
-            NoSuchMethodException, SecurityException, NoSuchFieldException, ModelValidationException {
+            NoSuchMethodException, SecurityException {
         Object instance = classType.getConstructor().newInstance();
         Field[] fields = classType.getDeclaredFields();
 
@@ -81,8 +81,6 @@ public class ObjectUtils {
         for (Field field : fields) {
             paramName = className + field.getName();
             String value = request.getParameter(paramName);
-
-            Validator.checkField(value, field);
 
             setObjectAttributesValues(instance, field, value);
         }

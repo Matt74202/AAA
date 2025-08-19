@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import manager.MainProcess;
+import manager.data.InitParameter;
 import exception.DuplicateUrlException;
 import exception.IllegalReturnTypeException;
 import exception.InvalidControllerPackageException;
@@ -21,6 +22,7 @@ import util.Mapping;
 public class FrontController extends HttpServlet {
     private Map<String, Mapping> URLMappings;
     private Exception exception = null;
+    private InitParameter initParameter;
 
     // Class methods
     private void processRequest(HttpServletRequest request, HttpServletResponse response)
@@ -89,5 +91,13 @@ public class FrontController extends HttpServlet {
 
     public void setException(Exception exception) {
         this.exception = exception;
+    }
+
+    public InitParameter getInitParameter() {
+        return initParameter;
+    }
+
+    public void setInitParameter(InitParameter initParameter) {
+        this.initParameter = initParameter;
     }
 }
